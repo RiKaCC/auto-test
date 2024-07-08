@@ -1,49 +1,40 @@
 <template>
   <div class="test-group">
-    <h2>{{ group.name }}</h2>
+    <h2 class="group-title">{{ group.name }}</h2>
     <div class="test-cases">
-      <div 
-        v-for="(testCase, index) in group.testCases" 
-        :key="index" 
-        class="test-case"
-        :class="{ 
-          'running': testCase.status === 'running',
-          'success': testCase.status === 'success',
-          'failure': testCase.status === 'failure'
-        }"
-        @click="runSingleTest(index)"
+      <div
+          v-for="testCase in group.testCases"
+          :key="testCase.id"
+          class="test-case"
+          :class="testCase.status"
+          @click="runSingleTest(testCase)"
       >
-        <h3>{{ testCase.name }}</h3>
-        <p>状态: {{ getStatusText(testCase.status) }}</p>
-        <p v-if="testCase.result">结果: {{ testCase.result }}</p>
+        <h3 class="test-name">{{ testCase.name }}</h3>
+        <p class="test-status">状态: {{ getStatusText(testCase.status) }}</p>
+        <p v-if="testCase.result" class="test-result">结果: {{ testCase.result }}</p>
       </div>
     </div>
-    <button @click="runAllTests" :disabled="isRunning">运行所有测试</button>
+    <button @click="runAllTests" :disabled="isRunning" class="run-all-btn">
+      运行所有测试
+    </button>
   </div>
 </template>
 
 <script>
-import axios from 'axios';
+import { ref } from 'vue';
 
 export default {
   name: 'TestGroup',
-  data() {
-    return {
-      group: {
-        name: '拉流测试',
-        testCases: [
-          { name: '推流', status: 'idle', result: null },
-          { name: '拉流', status: 'idle', result: null },
-          { name: '拉流探测', status: 'idle', result: null },
-          { name: '断流', status: 'idle', result: null },
-          { name: '重新拉流', status: 'idle', result: null },
-        ]
-      },
-      isRunning: false
+  props: {
+    group: {
+      type: Object,
+      required: true
     }
   },
-  methods: {
-    getStatusText(status) {
+  setup(props) {
+    const isRunning = ref(false);
+
+    const getStatusText = (status) => {
       const statusMap = {
         'idle': '未开始',
         'running': '进行中',
@@ -51,69 +42,124 @@ export default {
         'failure': '失败'
       };
       return statusMap[status] || status;
-    },
-    async runTest(testCase) {
+    };
+
+    const runTest = async (testCase) => {
       testCase.status = 'running';
-      try {
-        const response = await axios.post('http://localhost:8080/runTest', { testName: testCase.name });
-        testCase.status = response.data.success ? 'success' : 'failure';
-        testCase.result = response.data.result;
-        return response.data.success;
-      } catch (error) {
-        testCase.status = 'failure';
-        testCase.result = error.message;
-        return false;
-      }
-    },
-    async runAllTests() {
-      this.isRunning = true;
-      for (let testCase of this.group.testCases) {
-        const success = await this.runTest(testCase);
+      // 模拟异步测试运行
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      testCase.status = Math.random() > 0.5 ? 'success' : 'failure';
+      testCase.result = testCase.status === 'success' ? '测试通过' : '测试失败';
+      return testCase.status === 'success';
+    };
+
+    const runAllTests = async () => {
+      isRunning.value = true;
+      for (let testCase of props.group.testCases) {
+        const success = await runTest(testCase);
         if (!success) break;
       }
-      this.isRunning = false;
-    },
-    async runSingleTest(index) {
-      if (this.isRunning || this.group.testCases[index].status === 'running') {
+      isRunning.value = false;
+    };
+
+    const runSingleTest = async (testCase) => {
+      if (isRunning.value || testCase.status === 'running') {
         return;
       }
-      await this.runTest(this.group.testCases[index]);
-    }
+      await runTest(testCase);
+    };
+
+    return {
+      isRunning,
+      getStatusText,
+      runAllTests,
+      runSingleTest
+    };
   }
-}
+};
 </script>
 
 <style scoped>
 .test-group {
-  margin: 20px;
+  background-color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   padding: 20px;
-  border: 1px solid #ddd;
+  margin: 20px 0;
 }
+
+.group-title {
+  color: #333;
+  margin-top: 0;
+  margin-bottom: 20px;
+  font-size: 1.5em;
+}
+
 .test-cases {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 15px;
+  margin-bottom: 20px;
 }
+
 .test-case {
-  width: 200px;
-  padding: 10px;
-  border: 1px solid #eee;
+  background-color: #f9f9f9;
+  border-radius: 6px;
+  padding: 15px;
   cursor: pointer;
   transition: all 0.3s ease;
 }
+
+.test-case:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
 .test-case.running {
-  background-color: #f0f0f0;
-  cursor: not-allowed;
+  background-color: #fff9c4;
 }
+
 .test-case.success {
-  background-color: #e6ffe6;
+  background-color: #c8e6c9;
 }
+
 .test-case.failure {
-  background-color: #ffe6e6;
+  background-color: #ffcdd2;
 }
-button {
-  margin-top: 20px;
+
+.test-name {
+  margin: 0 0 10px 0;
+  font-size: 1.1em;
+  color: #444;
+}
+
+.test-status, .test-result {
+  margin: 5px 0;
+  font-size: 0.9em;
+  color: #666;
+}
+
+.run-all-btn {
+  background-color: #4CAF50;
+  border: none;
+  color: white;
   padding: 10px 20px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
   font-size: 16px;
+  margin-top: 10px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.3s ease;
+}
+
+.run-all-btn:hover {
+  background-color: #45a049;
+}
+
+.run-all-btn:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
 }
 </style>
